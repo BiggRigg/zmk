@@ -594,6 +594,9 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE)
     if (as_zmk_activity_state_changed(eh)) {
+        if (zmk_usb_is_powered()) {
+            return 0; // skip idle timeout when on USB power
+        }
         static bool prev_state = false;
         return rgb_underglow_auto_state(&prev_state,
                                         zmk_activity_get_state() == ZMK_ACTIVITY_ACTIVE);

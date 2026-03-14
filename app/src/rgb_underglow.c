@@ -44,6 +44,7 @@ enum rgb_underglow_effect {
     UNDERGLOW_EFFECT_SPECTRUM,
     UNDERGLOW_EFFECT_SWIRL,
     UNDERGLOW_EFFECT_DEFAULTLAYER,
+    UNDERGLOW_EFFECT_BREATHE_LAYER,
     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
 };
 
@@ -230,6 +231,58 @@ static void zmk_rgb_underglow_effect_layer_default() {
         }
 }
 
+static void zmk_rgb_underglow_effect_breathe_layer() {
+    // Get the layer color using the same logic as layer_default
+    struct led_rgb rgb;
+    uint8_t layer = zmk_keymap_layer_default();
+    const struct zmk_keymap_led_config *led_config = zmk_keymap_get_led_config(layer);
+    if (led_config->override) {
+        rgb.r = led_config->r;
+        rgb.g = led_config->g;
+        rgb.b = led_config->b;
+    } else {
+        switch (layer) {
+        case 0: rgb.r = 255; rgb.g = 0;   rgb.b = 0;   break;
+        case 1: rgb.r = 0;   rgb.g = 255; rgb.b = 0;   break;
+        case 2: rgb.r = 0;   rgb.g = 0;   rgb.b = 255; break;
+        case 3: rgb.r = 255; rgb.g = 255; rgb.b = 0;   break;
+        case 4: rgb.r = 0;   rgb.g = 255; rgb.b = 255; break;
+        case 5: rgb.r = 255; rgb.g = 0;   rgb.b = 255; break;
+        default: rgb.r = 255; rgb.g = 255; rgb.b = 255; break;
+        }
+    }
+
+    // Compute breathe brightness as a 0.0 to 1.0 scale
+    float brightness = (float)abs(state.animation_step - 1200) / 1200.0f;
+    float scale = brightness * CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX / BRT_MAX;
+
+    struct led_rgb scaled = {
+        r : (uint8_t)(rgb.r * scale),
+        g : (uint8_t)(rgb.g * scale),
+        b : (uint8_t)(rgb.b * scale)
+    };
+
+    #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_LAYER_ON)
+    char *name = zmk_keymap_layer_label(zmk_keymap_highest_layer_active());
+    if (!strcmp(name, "shift") && !state.on) {
+        zmk_rgb_underglow_on();
+    } else if (strcmp(name, "shift") && state.on) {
+        zmk_rgb_underglow_off();
+    }
+    #endif
+
+    if (state.on) {
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            pixels[i] = scaled;
+        }
+    }
+
+    state.animation_step += state.animation_speed * 10;
+    if (state.animation_step > 2400) {
+        state.animation_step = 0;
+    }
+}
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_SOLID:
@@ -246,6 +299,9 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_DEFAULTLAYER:
         zmk_rgb_underglow_effect_layer_default();
+        break;
+    case UNDERGLOW_EFFECT_BREATHE_LAYER:
+        zmk_rgb_underglow_effect_breathe_layer();
         break;
     }
 

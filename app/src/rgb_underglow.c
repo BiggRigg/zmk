@@ -389,7 +389,7 @@ static int zmk_rgb_underglow_init(const struct device *_arg) {
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_ON_START)
-    state.on = true; // Force on regardless of saved flash state
+    zmk_rgb_underglow_on(); // Force on including re-enabling ext power
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
